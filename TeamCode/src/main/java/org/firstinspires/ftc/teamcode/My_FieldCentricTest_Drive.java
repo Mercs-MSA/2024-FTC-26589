@@ -29,14 +29,14 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.ClawServoOp;
-import org.firstinspires.ftc.teamcode.ClawSliderOp;
+
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 
 // --------------- Our robot's OpMode operation ----------------
@@ -63,8 +63,8 @@ import org.firstinspires.ftc.teamcode.ClawSliderOp;
 
 
 @TeleOp
-// My_26589_TeamCode class
-// - Main class for this program
+// My_FieldCentricTest_Drive class
+// - Main class for this program to drive in Field Centric coordinates
 //
 // *********************************************************************
 // ************** MAJOR  FUNCTIONS *************************************
@@ -95,7 +95,7 @@ import org.firstinspires.ftc.teamcode.ClawSliderOp;
 // Implementation in ClawServoOp class
 //
 
-public class My_26589_TeamCode extends LinearOpMode {
+public class My_FieldCentricTest_Drive extends LinearOpMode {
 
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
@@ -107,7 +107,7 @@ public class My_26589_TeamCode extends LinearOpMode {
     // Define class members
     ClawServoOp myClawServoOp = null;
     ClawSliderOp myClawSliderOp = null;
-    static final int    CYCLE_MS    =   10;     // period of each cycle
+    static final int    CYCLE_MS    =   20;     // period of each cycle
 
     @Override
     public void runOpMode() {
@@ -136,10 +136,16 @@ public class My_26589_TeamCode extends LinearOpMode {
         rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
 
+        IMU imu = hardwareMap.get(IMU.class,"imu");
+        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
+                RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                ));
+        imu.initialize(parameters);
+
         // Wait for the game to start (driver presses PLAY)
         telemetry.addData("Status", "Initialized");
         telemetry.update();
-
         // Initialize the Claw servos
         myClawServoOp = new ClawServoOp(hardwareMap, gamepad2, telemetry);
         myClawSliderOp = new ClawSliderOp(hardwareMap, gamepad2, telemetry);
@@ -151,88 +157,67 @@ public class My_26589_TeamCode extends LinearOpMode {
             double max;
 
             // POV Mode uses left joystick to go forward & strafe, and right joystick to rotate.
-            double axial   = -gamepad1.left_stick_y;  // Note: pushing stick forward gives negative value
-            double lateral =  gamepad1.left_stick_x;
-            double yaw     =  gamepad1.right_stick_x;
+            double ly = -gamepad1.left_stick_y;  // Note: pushing stick forward gives negative value  // axial
+            double lx = gamepad1.left_stick_x;   // lateral
+            double rx = gamepad1.right_stick_x; // yaw
 
             // Combine the joystick requests for each axis-motion to determine each wheel's power.
             // Set up a variable for each drive wheel to save the power level for telemetry.
-            double leftFrontPower  = axial + lateral + yaw;
-            double rightFrontPower = axial - lateral - yaw;
-            double leftBackPower   = axial - lateral + yaw;
-            double rightBackPower  = axial + lateral - yaw;
+            double leftFrontPower = ly + lx + rx;
+            double rightFrontPower = ly - lx - rx;
+            double leftBackPower = ly - lx + rx;
+            double rightBackPower = ly + lx - rx;
 
             // Normalize the values so no wheel power exceeds 100%
             // This ensures that the robot maintains the desired motion.
-            max = Math.max(Math.abs(leftFrontPower), Math.abs(rightFrontPower));
-            max = Math.max(max, Math.abs(leftBackPower));
-            max = Math.max(max, Math.abs(rightBackPower));
+            max = Math.max(Math.abs(lx) + Math.abs(ly) + Math.abs(rx), 1);
+
+
+            double power = 0.2 + (0.6 * gamepad1.right_trigger);
+            double heading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+            double adjustedLx = -ly * Math.sin(heading) + lx * Math.cos(heading);
+            double adjustedLy = ly * Math.cos(heading) + lx  * Math.sin(heading);
+
 
             if (max > 1.0) {
-                leftFrontPower  /= max;
+                leftFrontPower /= max;
                 rightFrontPower /= max;
-                leftBackPower   /= max;
-                rightBackPower  /= max;
+                leftBackPower /= max;
+                rightBackPower /= max;
             }
+
+
+            heading = -imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+
+            // This is test code:
+            //
+            // Uncomment the following code to test your motor directions.
+            // Each button should make the corresponding motor run FORWARD.
+            //   1) First get all the motors to take to correct positions on the robot
+            //      by adjusting your Robot Configuration if necessary.
+            //   2) Then make sure they run in the correct direction by modifying the
+            //      the setDirection() calls above.
+            // Once the correct motors move in the correct direction re-comment this code.
+
+            /*
+            leftFrontPower  = gamepad1.x ? 1.0 : 0.0;  // X gamepad
+            leftBackPower   = gamepad1.a ? 1.0 : 0.0;  // A gamepad
+            rightFrontPower = gamepad1.y ? 1.0 : 0.0;  // Y gamepad
+            rightBackPower  = gamepad1.b ? 1.0 : 0.0;  // B gamepad
+            */
 
             // Send calculated power to wheels
-            leftFrontDrive.setPower(leftFrontPower);
-            rightFrontDrive.setPower(rightFrontPower);
-            leftBackDrive.setPower(leftBackPower);
-            rightBackDrive.setPower(rightBackPower);
+            leftFrontDrive.setPower(((adjustedLy + adjustedLx + rx) / max) * power);
+            rightFrontDrive.setPower(((adjustedLy - adjustedLx - rx) / max) * power);
+            leftBackDrive.setPower(((adjustedLy - adjustedLx + rx) / max) * power);
+            rightBackDrive.setPower(((adjustedLx + adjustedLy - rx) / max) * power);
 
             // Show the elapsed game time and wheel power.
-            telemetry.addData("Status", "Run Time: " + runtime.toString());
-            //telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
-            //telemetry.addData("Back  left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
+/*            telemetry.addData("Status", "Run Time: " + runtime.toString());
+            telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
+            telemetry.addData("Back  left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
             telemetry.update();
-
-
-            // =========   Claw slider movement ==============================================
-
-            // Code to control the claw slider forward and back
-            myClawSliderOp.OperateClawSlider();
-
-
-            // =========   Claw OPEN/CLOSE ==============================================
-
-            // Operate claw - it check if claw needs to be moved, and operates if needed
-            if(gamepad1.y) {                            // CLOSE the claw
-                myClawServoOp.closeClaw = true;
-                myClawServoOp.openClaw = false;
-            }
-            else if(gamepad1.x) {                       // OPEN the claw
-                myClawServoOp.closeClaw = false;
-                myClawServoOp.openClaw = true;
-            }
-            else {
-                myClawServoOp.closeClaw = false;
-                myClawServoOp.openClaw = false;
-            }
-            myClawServoOp.clawOpenClose();
-
-            // =========   Claw OPEN/CLOSE ==============================================
-
-            if(gamepad1.a) {
-                myClawServoOp.rotateToFront = true;
-                myClawServoOp.rotateToBack = false;
-            }
-            if(gamepad1.b) {
-                myClawServoOp.rotateToBack = true;
-                myClawServoOp.rotateToFront = false;
-            }
-            myClawServoOp.RotateClaw();
-
-
-            sleep(CYCLE_MS);   // could be removed ?
-            idle();            // could be removed ?
-
+*/
         }
-
-        // TeamCode application above to terminate
-        // stop the claw slider from abruptly falling
-        myClawSliderOp.moveSliderToIdlePosition();
-        telemetry.addData("Status", "Program stopped. All systems in idle mode.");
-        telemetry.update();
     }
 }
