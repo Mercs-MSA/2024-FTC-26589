@@ -34,6 +34,7 @@ ClawSliderOp {
     boolean sliderInHoldingPosition;
     int currentRotationPosition;
     int idleRotationPosition;
+    double sliderDownRotationPower;
 
     public Gamepad  myGamePad2;
     public Telemetry    clawTelemetry;
@@ -53,7 +54,7 @@ ClawSliderOp {
         rotateToFront = false;
         rotateToBack = false;
         currentRotationPosition = 0;
-        idleRotationPosition = 0;
+        idleRotationPosition = -50;
 
         sliderInHoldingPosition = false;
 
@@ -65,6 +66,8 @@ ClawSliderOp {
 
         myGamePad2 = secondGamePad;
         clawTelemetry = telemetry;
+
+        sliderDownRotationPower = 0.3 ;   // default rotation speed (power)
     }
 
     // OperateClawSlider() - Function to operate the claw slider.
@@ -100,41 +103,53 @@ ClawSliderOp {
 
     public void RotateClawSlider() {
         //
-        if (myGamePad2.left_stick_y > 0.0) {               // Rotate towards front of robot
+        rotateToFront = false;
+        rotateToBack = false;
+
+        if (myGamePad2.left_bumper)
+            sliderDownRotationPower = 0.04;
+        else if (myGamePad2.right_bumper)
+            sliderDownRotationPower = 0.3;
+        else sliderDownRotationPower = 0.1 ;
+
+        if (myGamePad2.left_stick_y > 0.0) {               // Rotate DOWNWARDS
+
+            clawTelemetry.addData("Rotation DOWN - Power :  ", "%4.2f", sliderDownRotationPower);
+
             rotateToFront = true;
             rotateToBack = false;
             sliderInHoldingPosition = false;
 
-            clawSliderRotationMotor.setPower(0.2);
+            clawSliderRotationMotor.setPower(sliderDownRotationPower);
             clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             clawSliderRotationMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-//            currentRotationPosition = clawSliderRotationMotor.getCurrentPosition();
-
+            currentRotationPosition = clawSliderRotationMotor.getCurrentPosition();
         }
-        else if (myGamePad2.left_stick_y < 0.0) {       // Rotate towards back of robot
-            rotateToBack = true;
-            rotateToFront = false;
-            sliderInHoldingPosition = false;
-
-            clawSliderRotationMotor.setPower(0.2);
-            clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            clawSliderRotationMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-//            currentRotationPosition = clawSliderRotationMotor.getCurrentPosition();
-
-        }
-        else {                                  // HOLD the slider steady
-            if (!sliderInHoldingPosition) {
+        else if (myGamePad2.left_stick_y < 0.0)            // Rotate UPWARDS
+        {
+            if (clawSliderRotationMotor.getCurrentPosition() < 1200)    // stop it from rotating too high (it makes the robot fall on its back !!!)
+            {
+                rotateToBack = true;
                 rotateToFront = false;
-                rotateToBack = false;
-                clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//            clawSliderRotationMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                sliderInHoldingPosition = false;
+
+                clawSliderRotationMotor.setPower(0.3);
+                clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                clawSliderRotationMotor.setDirection(DcMotorSimple.Direction.REVERSE);
                 currentRotationPosition = clawSliderRotationMotor.getCurrentPosition();
-                clawSliderRotationMotor.setTargetPosition(currentRotationPosition);
-                clawSliderRotationMotor.setPower(0.1);
-                sliderInHoldingPosition = true;
             }
+            else currentRotationPosition = 1200;
         }
-        clawTelemetry.addData("Rotation Position :  ", "%d", clawSliderRotationMotor.getCurrentPosition());
+        if ((!rotateToBack && !rotateToFront) && !sliderInHoldingPosition)
+        {
+            clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            clawSliderRotationMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            clawSliderRotationMotor.setTargetPosition(currentRotationPosition);
+            clawSliderRotationMotor.setPower(0.02);
+            sliderInHoldingPosition = true;
+        }
+        else
+            clawTelemetry.addData("Rotation Position :  ", "%d", clawSliderRotationMotor.getCurrentPosition());
 
     } // end RotateClawSlider()
 
@@ -144,8 +159,12 @@ ClawSliderOp {
     {
         clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         clawSliderRotationMotor.setTargetPosition(idleRotationPosition);
-        clawSliderRotationMotor.setPower(0.1);
+        clawSliderRotationMotor.setPower(0.02);
         clawSliderRotationMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        while (clawSliderRotationMotor.getCurrentPosition() < idleRotationPosition)
+        {
+            clawTelemetry.addData("Rotation Position :  ", "%d", clawSliderRotationMotor.getCurrentPosition());
+        }
         clawSliderRotationMotor.setPower(0.0);
     }
 
