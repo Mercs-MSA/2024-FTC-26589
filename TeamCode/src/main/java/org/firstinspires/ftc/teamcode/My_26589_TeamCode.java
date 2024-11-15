@@ -29,12 +29,16 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;   //changed
+import com.qualcomm.robotcore.hardware.IMU;    //changed
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.ClawServoOp;
 import org.firstinspires.ftc.teamcode.ClawSliderOp;
 
@@ -136,15 +140,24 @@ public class My_26589_TeamCode extends LinearOpMode {
         rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
         rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
 
+        IMU imu = hardwareMap.get(IMU.class,"imu");   //changed next 4 lines
+        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
+                RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+        ));
+        imu.initialize(parameters);
+
         // Wait for the game to start (driver presses PLAY)
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
-        // Initialize the Claw servos
+        // Initialize the Claw mechanism
         myClawServoOp = new ClawServoOp(hardwareMap, gamepad2, telemetry);
         myClawSliderOp = new ClawSliderOp(hardwareMap, gamepad2, telemetry);
         waitForStart();
         runtime.reset();
+
+        double maxDrivePower = 0.7;
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
@@ -155,7 +168,14 @@ public class My_26589_TeamCode extends LinearOpMode {
             double lateral =  gamepad1.left_stick_x;
             double yaw     =  gamepad1.right_stick_x;
 
-            // Combine the joystick requests for each axis-motion to determine each wheel's power.
+            double heading = -imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+
+//          lateral = -axial * Math.sin(heading) + lateral * Math.cos(heading);
+//          axial = axial * Math.cos(heading) + lateral  * Math.sin(heading);
+//telemetry.addData("heading",Math.toDegrees(heading));
+
+            // Combine the joystick requests for each axis-motion to determine
+            // ach wheel's power.
             // Set up a variable for each drive wheel to save the power level for telemetry.
             double leftFrontPower  = axial + lateral + yaw;
             double rightFrontPower = axial - lateral - yaw;
@@ -168,12 +188,54 @@ public class My_26589_TeamCode extends LinearOpMode {
             max = Math.max(max, Math.abs(leftBackPower));
             max = Math.max(max, Math.abs(rightBackPower));
 
+            // control the MAX drive speed
+            if (gamepad1.right_bumper)
+                maxDrivePower = 0.2;            // slow motion
+            else if (gamepad1.left_bumper)
+                maxDrivePower = 0.7;            // max speed
+
+            else maxDrivePower = 0.5;           // normal speed
+
+            if (max > maxDrivePower) {
+
+                if (leftFrontPower < 0.0)
+                    leftFrontPower  = -maxDrivePower;
+                else
+                    leftFrontPower  = maxDrivePower;
+
+                if (rightFrontPower < 0.0)
+                    rightFrontPower  = -maxDrivePower;
+                else
+                    rightFrontPower  = maxDrivePower;
+
+
+                if (leftBackPower < 0.0)
+                    leftBackPower  = -maxDrivePower;
+                else
+                    leftBackPower  = maxDrivePower;
+
+
+                if (rightBackPower < 0.0)
+                    rightBackPower  = -maxDrivePower;
+                else
+                    rightBackPower  = maxDrivePower;
+
+/*
+                leftFrontPower  = maxDrivePower;
+                rightFrontPower = maxDrivePower;
+                leftBackPower   = maxDrivePower;
+                rightBackPower  = maxDrivePower;
+*/
+            }
+
+/*
             if (max > 1.0) {
                 leftFrontPower  /= max;
                 rightFrontPower /= max;
                 leftBackPower   /= max;
                 rightBackPower  /= max;
             }
+*/
 
             // Send calculated power to wheels
             leftFrontDrive.setPower(leftFrontPower);
@@ -183,8 +245,9 @@ public class My_26589_TeamCode extends LinearOpMode {
 
             // Show the elapsed game time and wheel power.
             telemetry.addData("Status", "Run Time: " + runtime.toString());
-            //telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
-            //telemetry.addData("Back  left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
+            telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
+            telemetry.addData("Back  left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
+            telemetry.addData("Max",maxDrivePower);
             telemetry.update();
 
 
@@ -222,7 +285,6 @@ public class My_26589_TeamCode extends LinearOpMode {
                 myClawServoOp.rotateToFront = false;
             }
             myClawServoOp.RotateClaw();
-
 
             sleep(CYCLE_MS);   // could be removed ?
             idle();            // could be removed ?

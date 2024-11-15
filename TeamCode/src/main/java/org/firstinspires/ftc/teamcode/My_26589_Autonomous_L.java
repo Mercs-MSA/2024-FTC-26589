@@ -36,13 +36,15 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /*
+/////////////////////////////////////////////////////////////////////////////////////////////
  * Our robot's Autonomous operation when placed on the LEFT side of other alliance.
  * Main functions:
- * 1. Drop the pre-sample in upper bucket
- * 2. Position the robot in appropriate orientation (and slider position) to be ready
+ * 1. Drive to the alliance basket
+ * 2. Drop the pre-sample in upper bucket
+ * 3. Position the robot near the submersible in appropriate orientation (and slider position) to be ready
  *    to collect samples in TELEOP mode
  * To execute, select this mode in the list of programs on the FTC Driver Station.
- *
+/////////////////////////////////////////////////////////////////////////////////////////////
  */
 
 @TeleOp
@@ -61,19 +63,16 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 // *********************************************************************
 // **** 1 Drive the Robot **********************************************
 // *********************************************************************
-// PART - 1
-//      1. Drive the robot forward                :   6 inches
-//      2. Drive the robot sideways to its left   :  24 inches
-//      3. Rotate the robot                       : 120 deg
-//      4. Rotate slider upwards to 75 degrees
-//      5. Roll the slider forward to full length
-//      6. Rotate the claw 180 degrees
-//      7. Open the claw  (sample drops in the upper bucket)
-//      8. Drive the robot backward                :   6 inches
-//      9. Drive the robot sideways to its left    :  24 inches
-//      10. Roll the slider back to 25% length
-//      11. Hold the slider in that location (with open claw)
-//
+// STEPS
+//      1. Lift the clew slider bar to a level to place specimen on higher bar
+//      2. Rotate claw upwards appropriately
+//      3. Drive the robot forward                :   10 inches
+//      4. Elongate the claw slider bar to reach top bar
+//      5. Rotate claw downwards approprately such that the specimen gets inserted on the bar
+//      6. Reduce length of claw slider to idle
+//      7. Drive robot sideways to reach NET ZONE   :  24 inches
+//      8. Rotate claw slider bar to idle position
+//      9. STOP the program
 
 
 public class My_26589_Autonomous_L extends LinearOpMode {
@@ -89,14 +88,39 @@ public class My_26589_Autonomous_L extends LinearOpMode {
     private DcMotor clawSliderRotationMotor = null;
 
     // Define class members
-    ClawServoOp myClawServoOp = null;
-    ClawSliderOp_Autonomous_L myClawSliderOp = null;
+    Auto_L_ClawServoOp myClawServoOp = null;
+    Auto_L_ClawSliderOp myClawSliderOp = null;
     static final int    CYCLE_MS    =   20;     // period of each cycle
+    int direction = 0;
+
+    enum rotation
+    {
+        CLOCKWISE,
+        COUNTER_CLOCKWISE
+    };
+    enum moveDirection
+    {
+        FORWARD,
+        REVERSE
+    };
+
+    enum sliderLength
+    {
+        IDLE,
+        MIDDLE,
+        HIGH
+    };
+    int encoderResolution = 35;  // encoder reading per inch (385 ppr / 11 inch wheel circumference)
+
 
     @Override
-    public void runOpMode() {
+    public void runOpMode() throws InterruptedException {
 
-        // =========   Drivebase Movement ==============================================
+        // Initialize the Claw mechanism
+        myClawServoOp = new Auto_L_ClawServoOp(hardwareMap, gamepad2, telemetry);
+        myClawSliderOp = new Auto_L_ClawSliderOp(hardwareMap, gamepad2, telemetry);
+
+        // =========   Initialise Drivebase Movement ==============================================
         // Initialize the hardware variables. Note that the strings used here must correspond
         // to the names assigned during the robot configuration step on the DS or RC devices.
         leftFrontDrive  = hardwareMap.get(DcMotor.class, "left_front_drive");
@@ -104,121 +128,177 @@ public class My_26589_Autonomous_L extends LinearOpMode {
         rightFrontDrive = hardwareMap.get(DcMotor.class, "right_front_drive");
         rightBackDrive = hardwareMap.get(DcMotor.class, "right_back_drive");
 
-
-        clawSliderMotor = hardwareMap.get(DcMotor.class, "claw_slider_drive");
-        clawSliderRotationMotor = hardwareMap.get(DcMotor.class, "claw_slider_rotation");
-
-        // ########################################################################################
-        // !!!            IMPORTANT Drive Information. Test your motor directions.            !!!!!
-        // ########################################################################################
-        // Most robots need the motors on one side to be reversed to drive forward.
-        // The motor reversals shown here are for a "direct drive" robot (the wheels turn the same direction as the motor shaft)
-        // If your robot h
-        // as additional gear reductions or uses a right-angled drive, it's important to ensure
-        // that your motors are turning in the correct direction.  So, start out with the reversals here, BUT
-        // when you first test your robot, push the left joystick forward and observe the direction the wheels turn.
-        // Reverse the direction (flip FORWARD <-> REVERSE ) of any wheel that runs backward
-        // Keep testing until ALL the wheels move the robot forward when you push the left joystick forward.
+        //************************************************************
+        // Use leftBackDrive motor for distance measurement
+        //************************************************************
+        leftBackDrive.setPower(0.0);
+        leftBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftBackDrive.setTargetPosition(0);
 
         // Wait for the game to start (driver presses PLAY)
         telemetry.addData("Status", "Initialized");
+        telemetry.addData("Status", "Run Time: " + runtime.toString());
+        telemetry.addData("Drive Distance", "%d", leftBackDrive.getCurrentPosition());
+        telemetry.setMsTransmissionInterval(200);
         telemetry.update();
 
-        // Initialize the Claw servos
-        myClawServoOp = new ClawServoOp(hardwareMap, gamepad2, telemetry);
-        myClawSliderOp = new ClawSliderOp_Autonomous_L(hardwareMap, gamepad2, telemetry);
         waitForStart();
         runtime.reset();
-        int direction = 0;
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
 
-            // set power for all motors to same value
-            double wheelMotorPower = 0.1;
+            //////   STEP 1   //////////////////////////////////////////////////////////////////////
+            // Get the claw slider in desired position to place SPECIMEN in UPPER bar
+            myClawSliderOp.RotateClawSlider(5);
+//            sleep(10000);
+/*
 
-            sleep(2000);
+            //////   STEP 2   //////////////////////////////////////////////////////////////////////
+            myClawServoOp.RotateClaw(0.8);
+            sleep(5000);
+            myClawServoOp.RotateClaw(0.2);
+            sleep(5000);
+            myClawServoOp.RotateClaw(0.8);
+            sleep(5000);
+            myClawServoOp.RotateClaw(0.2);
+*/
 
-            // move forward
+
+            //////////////////////////////////////////////////////////////////////////////////////
+            // Drive the robot few (~15) inches
+            // Circumference of wheel is 300mm
+            // Encoder resolution is 1425.1 PPR
+            // One rotation = 301mm = 11.85 inches
+            // 1 inch = 120.25 encoder parts
+
+            driveRobotStraight(moveDirection.FORWARD, encoderResolution*18.0); // 6 inches
+
+
+            //////////////////////////////////////////////////////////////////////////////////////
+            //  Rotate robot 90 degrees
+
+//            rotateRobot(120, rotation.COUNTER_CLOCKWISE);
+
+            // Lift the claw slider to set it up for sample to be dropped in upper basket
+            //myClawSliderOp.RotateClawSlider(4);
+/*
+            // Slide the claw closer to the basket
+            myClawSliderOp.OperateClawSlider(0, 2);
+
+            // OPEN the claw - drop the sample in the Upper basket
+            myClawServoOp.setOpenClaw();
+
+            // Slide the slider to middle position
+            myClawSliderOp.OperateClawSlider(1, 1);
+
+            // rotate robot so it is parallel to wall
+            rotateRobot(30, rotation.CLOCKWISE);
+
+            // drive robot to PARK position
+            driveRobotStraight(moveDirection.REVERSE, encoderResolution*84.0); // 84 inches
+*/
+            idle();
+            sleep(50000);
+            myClawSliderOp.RotateClawSlider(0);
+            sleep(10000);
+
+            break;
+        }
+        // stop the slider from abruptly falling
+        telemetry.update();
+    }
+    public void rotateRobot(int degrees, rotation directionToRotate)
+    {
+        leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        if (directionToRotate == rotation.COUNTER_CLOCKWISE) {
             leftFrontDrive.setDirection(DcMotor.Direction.FORWARD);
             leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
             rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
             rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        }
+        else {
+            leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+            leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
+            rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+            rightBackDrive.setDirection(DcMotor.Direction.REVERSE);
+        }
 
-            wheelMotorPower = 0.25;
-            leftFrontDrive.setPower(wheelMotorPower);
-            rightFrontDrive.setPower(wheelMotorPower);
-            leftBackDrive.setPower(wheelMotorPower);
-            rightBackDrive.setPower(wheelMotorPower);
+        setDrivePower(0.2);
 
+        switch(degrees)
+        {
+            case 90:
+                sleep(1000);
+                break;
+            case 120:
+                sleep(1500);
+                break;
+            case 180:
+                sleep(2000);
+                break;
+            case 210:
+                sleep(2500);
+                break;
+            case 240:
+                sleep(3000);
+                break;
+            case 270:
+                sleep(3500);
+                break;
+            default:
+                break;
+        }
+        setDrivePower(0.0);
+    }
 
-            //stop
-            sleep(2000);
-            leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            leftFrontDrive.setPower(0.0);
-            rightFrontDrive.setPower(0.0);
-            leftBackDrive.setPower(0.0);
-            rightBackDrive.setPower(0.0);
+    public void driveRobotStraight(moveDirection dDir, double desiredDistance) {
 
-            sleep(5000);
+        setDrivePower(0.0);
+        leftBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        telemetry.update();
 
-            // rotate ROBOT
+        if (dDir == moveDirection.FORWARD) {
             leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
             leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
             rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
             rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-
-            // Send calculated power to wheels
-            wheelMotorPower = 0.25;
-
-            leftFrontDrive.setPower(wheelMotorPower);
-            rightFrontDrive.setPower(wheelMotorPower);
-            leftBackDrive.setPower(wheelMotorPower);
-            rightBackDrive.setPower(wheelMotorPower);
-
-
-            // =========   Claw slider movement ==============================================
-            // Code to control the claw slider forward and back
-//            myClawSliderOp.OperateClawSlider();
-            myClawSliderOp.RotateClawSlider(direction);
-            sleep(3000);
-            myClawSliderOp.HoldClawSliderAtCurrentRotationPosition();
-            if (direction == 1)
-                direction = 0;
-            else direction = 1;
-            // =========   Claw slider movement  - END ==============================================
-
-            // =========   Claw movement ==============================================
-
-            clawSliderMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-            clawSliderMotor.setPower(0.4);
-
-            sleep(1000);
-
-            clawSliderMotor.setPower(0.0);
-
-
-
-            // Operate claw - it check if claw needs to be moved, and operates if needed
-            myClawServoOp.setOpenClaw();
-            // =========   Claw movement  - END ==============================================
-/*
-            sleep(1000);
-            leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            leftFrontDrive.setPower(0.0);
-            rightFrontDrive.setPower(0.0);
-            leftBackDrive.setPower(0.0);
-            rightBackDrive.setPower(0.0);
-*/
-            idle();
         }
-        // stop the slider from abruptly falling
-        telemetry.update();
+        else if (dDir == moveDirection.REVERSE) {
+            leftFrontDrive.setDirection(DcMotor.Direction.FORWARD);
+            leftBackDrive.setDirection(DcMotor.Direction.FORWARD);
+            rightFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+            rightBackDrive.setDirection(DcMotor.Direction.REVERSE);
+        }
+        else
+            return; // invalid direction
+
+        leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftBackDrive.setTargetPosition((int)desiredDistance);
+
+        setDrivePower(0.2);
+
+        //keep rotating until we reach desired position
+        while (leftBackDrive.getCurrentPosition() < desiredDistance)
+        {
+            // display status
+            telemetry.addData("Status", "Run Time: " + runtime.toString());
+            telemetry.addData("Desired Distance", "%d", (int)desiredDistance);
+            telemetry.addData("Encoder Resolution", "%d", (int)encoderResolution);
+            telemetry.addData("Drive Distance", "%d", leftBackDrive.getCurrentPosition());
+            telemetry.update();
+        }
+
+        // stop the robot
+        setDrivePower(0.0);
+    }
+    public void setDrivePower(double power) {
+        rightFrontDrive.setPower(power);
+        rightBackDrive.setPower(power);
+        leftFrontDrive.setPower(power);
+        leftBackDrive.setPower(power);
+        if (power == 0.0)
+            leftBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 }
