@@ -114,7 +114,7 @@ public class My_26589_TeamCode extends LinearOpMode {
     static final int    CYCLE_MS    =   10;     // period of each cycle
 
     @Override
-    public void runOpMode() {
+    public void runOpMode() throws InterruptedException {
 
         // =========   Drivebase Movement ==============================================
         // Initialize the hardware variables. Note that the strings used here must correspond
@@ -219,23 +219,7 @@ public class My_26589_TeamCode extends LinearOpMode {
                     rightBackPower  = -maxDrivePower;
                 else
                     rightBackPower  = maxDrivePower;
-
-/*
-                leftFrontPower  = maxDrivePower;
-                rightFrontPower = maxDrivePower;
-                leftBackPower   = maxDrivePower;
-                rightBackPower  = maxDrivePower;
-*/
             }
-
-/*
-            if (max > 1.0) {
-                leftFrontPower  /= max;
-                rightFrontPower /= max;
-                leftBackPower   /= max;
-                rightBackPower  /= max;
-            }
-*/
 
             // Send calculated power to wheels
             leftFrontDrive.setPower(leftFrontPower);
@@ -274,7 +258,7 @@ public class My_26589_TeamCode extends LinearOpMode {
             }
             myClawServoOp.clawOpenClose();
 
-            // =========   Claw OPEN/CLOSE ==============================================
+            // =========   Claw ROTATE   ==============================================
 
             if(gamepad1.a) {
                 myClawServoOp.rotateToFront = true;

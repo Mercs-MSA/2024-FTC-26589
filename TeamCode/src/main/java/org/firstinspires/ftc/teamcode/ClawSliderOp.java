@@ -35,6 +35,7 @@ ClawSliderOp {
     int currentRotationPosition;
     int idleRotationPosition;
     double sliderDownRotationPower;
+    double sliderExtendRotationPower;
 
     public Gamepad  myGamePad2;
     public Telemetry    clawTelemetry;
@@ -67,26 +68,32 @@ ClawSliderOp {
         myGamePad2 = secondGamePad;
         clawTelemetry = telemetry;
 
-        sliderDownRotationPower = 0.3 ;   // default rotation speed (power)
+        sliderDownRotationPower = 0.2 ;   // default rotation speed (power)
+        sliderExtendRotationPower = 0.6;
     }
 
     // OperateClawSlider() - Function to operate the claw slider.
     // Check in My_26589_TeamCode.java for Gampepad key assignment
 
     public void OperateClawSlider() {
-    //
+    // move the slider to - desiredLength - from idle position
+        if (myGamePad2.right_bumper)
+            sliderExtendRotationPower = 0.8;
+        else
+            sliderExtendRotationPower = 0.6;
+
         if (myGamePad2.right_stick_y > 0.0) {               // push the slider outward
             slideForward = true;
             slideBackward = false;
 
-            clawSliderMotor.setPower(0.4);
+            clawSliderMotor.setPower(sliderExtendRotationPower);
             clawSliderMotor.setDirection(DcMotorSimple.Direction.FORWARD);
         }
         else if (myGamePad2.right_stick_y < 0.0) {           // pull the slider inward
             slideBackward = true;
             slideForward = false;
 
-            clawSliderMotor.setPower(0.4);
+            clawSliderMotor.setPower(sliderExtendRotationPower);
             clawSliderMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         }
         else {                                      // hold the slider to current length
@@ -107,10 +114,8 @@ ClawSliderOp {
         rotateToBack = false;
 
         if (myGamePad2.left_bumper)
-            sliderDownRotationPower = 0.04;
-        else if (myGamePad2.right_bumper)
-            sliderDownRotationPower = 0.3;
-        else sliderDownRotationPower = 0.1 ;
+            sliderDownRotationPower = 0.4;
+        else sliderDownRotationPower = 0.2 ;
 
         if (myGamePad2.left_stick_y > 0.0) {               // Rotate DOWNWARDS
 
@@ -133,7 +138,7 @@ ClawSliderOp {
                 rotateToFront = false;
                 sliderInHoldingPosition = false;
 
-                clawSliderRotationMotor.setPower(0.3);
+                clawSliderRotationMotor.setPower(sliderDownRotationPower); // 0.3
                 clawSliderRotationMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
                 clawSliderRotationMotor.setDirection(DcMotorSimple.Direction.REVERSE);
                 currentRotationPosition = clawSliderRotationMotor.getCurrentPosition();

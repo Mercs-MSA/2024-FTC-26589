@@ -29,26 +29,14 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/*
-/////////////////////////////////////////////////////////////////////////////////////////////
- * Our robot's Autonomous operation when placed on the LEFT side of other alliance.
- * Main functions:
- * 1. Drive to the alliance basket
- * 2. Drop the pre-sample in upper bucket
- * 3. Position the robot near the submersible in appropriate orientation (and slider position) to be ready
- *    to collect samples in TELEOP mode
- * To execute, select this mode in the list of programs on the FTC Driver Station.
-/////////////////////////////////////////////////////////////////////////////////////////////
- */
 
-@TeleOp
-// My_26589_Autonomous_L class
+@Autonomous
+// My_26589_Auto_L_orig_claw class
 // - Main class for this program
 //
 // *********************************************************************
@@ -57,25 +45,15 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 // When opMode is active:
 //   1 Drive the robot to the location closer to the basket assembly such
 //     that a sample can be dropped in the upper basket
-//   2 TBD
-//   3 TBD
+//   2 Rotate and pick up one of the spike samples from the floor and
+//     drop it in the LOWER basket
 //
-// *********************************************************************
-// **** 1 Drive the Robot **********************************************
-// *********************************************************************
-// STEPS
-//      1. Lift the clew slider bar to a level to place specimen on higher bar
-//      2. Rotate claw upwards appropriately
-//      3. Drive the robot forward                :   10 inches
-//      4. Elongate the claw slider bar to reach top bar
-//      5. Rotate claw downwards approprately such that the specimen gets inserted on the bar
-//      6. Reduce length of claw slider to idle
-//      7. Drive robot sideways to reach NET ZONE   :  24 inches
-//      8. Rotate claw slider bar to idle position
-//      9. STOP the program
+
+/////////////   uses NEW claw ///////////////////////////////////////
 
 
-public class My_26589_Autonomous_L extends LinearOpMode {
+
+public class My_26589_Auto_5_L extends LinearOpMode {
 
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
@@ -116,6 +94,9 @@ public class My_26589_Autonomous_L extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
 
+        int x = 0;
+        double position = 0.0;
+
         // Initialize the Claw mechanism
         myClawServoOp = new Auto_L_ClawServoOp(hardwareMap, gamepad2, telemetry);
         myClawSliderOp = new Auto_L_ClawSliderOp(hardwareMap, gamepad2, telemetry);
@@ -148,68 +129,97 @@ public class My_26589_Autonomous_L extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
 
-            //////   STEP 1   //////////////////////////////////////////////////////////////////////
-            // Get the claw slider in desired position to place SPECIMEN in UPPER bar
-            myClawSliderOp.RotateClawSlider(5);
-//            sleep(10000);
-/*
-
-            //////   STEP 2   //////////////////////////////////////////////////////////////////////
-            myClawServoOp.RotateClaw(0.8);
-            sleep(5000);
-            myClawServoOp.RotateClaw(0.2);
-            sleep(5000);
-            myClawServoOp.RotateClaw(0.8);
-            sleep(5000);
-            myClawServoOp.RotateClaw(0.2);
-*/
-
-
-            //////////////////////////////////////////////////////////////////////////////////////
-            // Drive the robot few (~15) inches
-            // Circumference of wheel is 300mm
-            // Encoder resolution is 1425.1 PPR
-            // One rotation = 301mm = 11.85 inches
-            // 1 inch = 120.25 encoder parts
-
-            driveRobotStraight(moveDirection.FORWARD, encoderResolution*18.0); // 6 inches
+// *********************************************************************
+// **** 1 Drive the Robot **********************************************
+// *********************************************************************
+// STEPS
+//      //// The robot should be placed properly sideways, claw pointing
+//      //// towards the net zone.
+//      In autonoumous mode, we will drop a pre-loaded sample in UPPER basket,
+//      pickup another sample from floor, and place it in LOWER basket
+//
+//      1. Lift the clew slider bar slightly
+//      2. Rotate claw upwards appropriately
+//      3. Drive the robot forward to appropriate distance
+//      4. Rotate the robot appropriately such that the claw points toward center of basket
+//      5. Rotate the claw slider fully upwards
+//      6. Elongate the claw slider bar to reach UPPER basket
+//      7. Rotate claw downwards appropriately such that the sample drops
+//      8. Reduce length of claw slider
+//      9. Rotate and reach to pick up sample from floor
+//     10. Rotate again and place sample in LOWER basket
 
 
-            //////////////////////////////////////////////////////////////////////////////////////
-            //  Rotate robot 90 degrees
+            myClawSliderOp.RotateClawSlider(3);
 
-//            rotateRobot(120, rotation.COUNTER_CLOCKWISE);
+            driveRobotStraight(moveDirection.FORWARD, encoderResolution*19.00); // 9 inches
 
-            // Lift the claw slider to set it up for sample to be dropped in upper basket
-            //myClawSliderOp.RotateClawSlider(4);
-/*
-            // Slide the claw closer to the basket
-            myClawSliderOp.OperateClawSlider(0, 2);
+            myClawSliderOp.OperateClawSlider(1, 2);
 
-            // OPEN the claw - drop the sample in the Upper basket
-            myClawServoOp.setOpenClaw();
+            myClawServoOp.RotateClaw(0.9);
 
-            // Slide the slider to middle position
-            myClawSliderOp.OperateClawSlider(1, 1);
+            rotateRobot(10, rotation.COUNTER_CLOCKWISE);
 
-            // rotate robot so it is parallel to wall
-            rotateRobot(30, rotation.CLOCKWISE);
+            driveRobotStraight(moveDirection.FORWARD, encoderResolution*9.00);
 
-            // drive robot to PARK position
-            driveRobotStraight(moveDirection.REVERSE, encoderResolution*84.0); // 84 inches
-*/
-            idle();
-            sleep(50000);
+            myClawSliderOp.RotateClawSlider(2);
+
+            sleep(1000);
+
+            myClawServoOp.openClaw();            // SAMPLE dropped in UPPER basket  //////////
+
+            myClawSliderOp.RotateClawSlider(3);
+
+            myClawSliderOp.OperateClawSlider(0, 3);
+
+            driveRobotStraight(moveDirection.REVERSE, encoderResolution*3.00);
+
+            rotateRobot(135, rotation.CLOCKWISE);
+
+            myClawServoOp.openClaw();
+            myClawServoOp.openClaw();
+
+            driveRobotStraight(moveDirection.FORWARD, encoderResolution*8.00);
+
             myClawSliderOp.RotateClawSlider(0);
-            sleep(10000);
 
+            myClawServoOp.closeClaw();
+            myClawServoOp.closeClaw();
+            myClawServoOp.closeClaw();
+
+            sleep(1000);
+
+            myClawSliderOp.RotateClawSlider(3);
+
+            driveRobotStraight(moveDirection.REVERSE, encoderResolution*10.00);
+
+            rotateRobot(210, rotation.COUNTER_CLOCKWISE);
+
+            driveRobotStraight(moveDirection.FORWARD, encoderResolution*3.00);
+
+            myClawSliderOp.RotateClawSlider(6);
+
+            sleep(500);
+
+            myClawServoOp.openClaw();        // SAMPLE dropped in LOWER basket
+            myClawServoOp.openClaw();
+
+            // back away from the basket and lower the slider
+            driveRobotStraight(moveDirection.REVERSE, encoderResolution*8.00);
+            myClawSliderOp.RotateClawSlider(0);
+
+            idle();
+            sleep(30000);
             break;
         }
-        // stop the slider from abruptly falling
         telemetry.update();
     }
     public void rotateRobot(int degrees, rotation directionToRotate)
     {
+
+        // this functionality is written using time - very crude way
+        // right way is to use a sensor which provides live rotation feedback.
+
         leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         if (directionToRotate == rotation.COUNTER_CLOCKWISE) {
@@ -225,21 +235,23 @@ public class My_26589_Autonomous_L extends LinearOpMode {
             rightBackDrive.setDirection(DcMotor.Direction.REVERSE);
         }
 
-        setDrivePower(0.2);
+
+        setDrivePower(0.3);
 
         switch(degrees)
         {
-            case 90:
-                sleep(1000);
+            case 10:
+                sleep(1300);
                 break;
-            case 120:
-                sleep(1500);
+            case 135:
+                sleep(2300);
+
                 break;
             case 180:
-                sleep(2000);
+                sleep(3500);
                 break;
             case 210:
-                sleep(2500);
+                sleep(2200);
                 break;
             case 240:
                 sleep(3000);
@@ -276,6 +288,12 @@ public class My_26589_Autonomous_L extends LinearOpMode {
 
         leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftBackDrive.setTargetPosition((int)desiredDistance);
+
+        telemetry.addData("Status", "Run Time: " + runtime.toString());
+        telemetry.addData("Desired Distance", "%d", (int)desiredDistance);
+        telemetry.addData("Encoder Resolution", "%d", (int)encoderResolution);
+        telemetry.addData("Drive Distance", "%d", leftBackDrive.getCurrentPosition());
+        telemetry.update();
 
         setDrivePower(0.2);
 
