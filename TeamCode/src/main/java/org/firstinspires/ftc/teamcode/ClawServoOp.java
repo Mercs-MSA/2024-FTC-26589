@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.tel
 
 import androidx.annotation.NonNull;
 
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -14,6 +15,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
+// This class contains code to control the claw's rotation as well as
+// control the close/open operation of the claw
 public class ClawServoOp {
 
     // Member variables
@@ -21,64 +24,49 @@ public class ClawServoOp {
     static final double MAX_POS     =  1.0;     // Maximum rotational position
     static final double MIN_POS     =  0.0;     // Minimum rotational position
 
-    // member variables - initialized in the constructor    
+    // member variables - initialized in the constructor
+    // Rotation Servo /////////////////////////////
     double positionOfRotation;
-    double  positionR;
-    double  positionL;
     boolean rotateToFront;
     boolean rotateToBack;
+    public Servo clawRotationServo;
+
+    // Claw servo /////////////////////////////////
     boolean closeClaw;
     boolean openClaw;
+    public CRServo clawServoR;
+    public CRServo clawServoL;
 
-    public Servo   clawServoR;
-    public Servo   clawServoL;
-    public Servo   clawRotationServo;
 
+    // misc ///////////////////////////////////////////
     public Gamepad  myGamePad2;
     public Telemetry    clawTelemetry;
 
-    // Constructor
+    /////////////////////////////////////////////   Constructor   /////////////////////////
     public ClawServoOp(@NonNull HardwareMap hardwareMap, Gamepad secondGamePad, Telemetry telemetry) {
         // claw initialization
-        clawRotationServo = hardwareMap.get(Servo.class, "claw_Rotation"); // servo 0
-        clawServoR = hardwareMap.get(Servo.class, "claw_R"); // servo 1
-        clawServoL = hardwareMap.get(Servo.class, "claw_L"); // servo 2
-
-        clawServoL.resetDeviceConfigurationForOpMode();
-        clawServoL.scaleRange(0.0,0.6);
-        positionL = 0.6;
-        clawServoL.setDirection(Servo.Direction.REVERSE);
-        clawServoL.setPosition(positionL);
-
-        clawServoR.resetDeviceConfigurationForOpMode();
-        clawServoR.scaleRange(0.0,0.3);
-        positionR = 0.8;
-        clawServoR.setPosition(positionR);
+        clawRotationServo = hardwareMap.get(Servo.class, "claw_Rotation"); // servo 0- CONTROL HUB
+        clawServoR = hardwareMap.get(CRServo.class, "claw_R"); // servo 1 - EXPANSION HUB
+        clawServoL = hardwareMap.get(CRServo.class, "claw_L"); // servo 2 - EXPANSION HUB
 
         closeClaw = false;
         openClaw = false;
+
+//        clawServoR.getController().pwmEnable();
+//        clawServoL.getController().pwmEnable();
 
         positionOfRotation = 0.5;   // Position Rotation servor to initial position
         clawRotationServo.setPosition(positionOfRotation);
         rotateToFront = false;
         rotateToBack = false;
 
-
         myGamePad2 = secondGamePad;
         clawTelemetry = telemetry;
-
     }
 
-    // OperateClaw() - Function to operate the claw.
-    //   - It first checks if Y or A key is pressed on Gamepad-2.
-    //   - If none of the two are found pressed, this function just returns without doing anything
-    //   - If Y key is pressed, both servos operate to CLOSE the claw.
-    //       - If MAX/MIN position reached, do nothing (just to protect the servo)
-    //   - If A key is pressed, both servos operate to OPEN the claw.
-    //       - If MAX/MIN position reached, do nothing (just to protect the servo)
-    //
-
-
+    // RotateClaw()
+    // - Function to rotate (not open/close) the claw
+    // - Servo is operating in standard mode (rotation limit 300 deg)
     public void RotateClaw() {
 
         if (rotateToFront) {
@@ -92,7 +80,7 @@ public class ClawServoOp {
         else if (rotateToBack){
             positionOfRotation -= INCREMENT ;
 
-            // Keep stepping up until we hit the min value
+            // Keep stepping down until we hit the min value
             if (positionOfRotation <= MIN_POS ) {
                 positionOfRotation = MIN_POS;
             }
@@ -105,54 +93,44 @@ public class ClawServoOp {
         }
     }
 
-    public void setOpenClaw() {
-        positionR = MIN_POS;
-        positionL = MAX_POS;
-        clawServoR.setPosition(positionR);
-        clawServoL.setPosition(positionL);
+    // clawOpenClose()
+    //   - The servos are operating in CONTINUOUS rotation mode. CVServo class is used.
+    //   - Gamepad-1 controls are checked in the main program loop, and sets
+    //     the 'closeClaw' and 'openClaw' variable values accordingly
+    //   - If Y key is pressed, both servos operate to CLOSE the claw.
+    //   - If A key is pressed, both servos operate to OPEN the claw.
 
-        clawTelemetry.addData("Claw Status", "Opened");
-        clawTelemetry.update();
-    }
+    public void clawOpenClose() throws InterruptedException {                   // uses GAMEPAD-1 X and Y buttons
 
-    public void clawOpenClose() {                   // uses GAMEPAD-1 X and Y buttons
+        if (closeClaw) {                // GAMEPAD-1 Y
+            clawServoR.setDirection(CRServo.Direction.REVERSE);
+            clawServoL.setDirection(CRServo.Direction.FORWARD);
 
-        if (closeClaw) {
-            positionR += INCREMENT;
-            // Keep stepping up until we hit the max value.
-            if (positionR >= MAX_POS) {
-                positionR = MAX_POS;
-            }
-            positionL += INCREMENT;
-            // Keep stepping up until we hit the max value.
-            if (positionL >= MAX_POS) {
-                positionL = MAX_POS;
-            }
+//            clawServoR.getController().pwmEnable();
+            clawServoR.setPower(0.3);
+            clawServoL.setPower(0.3);
+
         }
-        if (openClaw) {
-            positionL -= INCREMENT;
-            // Keep stepping up until we hit the min value.
-            if (positionL <= MIN_POS) {
-                positionL = MIN_POS;
-            }
-            positionR -= INCREMENT;
-            // Keep stepping up until we hit the min value.
-            if (positionR <= MIN_POS) {
-                positionR = MIN_POS;
-            }
+        if (openClaw) {                 // GAMEPAD-1 X
+            clawServoR.setDirection(CRServo.Direction.FORWARD);
+            clawServoL.setDirection(CRServo.Direction.REVERSE);
+
+//            clawServoR.getController().pwmEnable();
+            clawServoR.setPower(0.3);
+            clawServoL.setPower(0.3);
+
         }
 
-        // Set the servo to the new position and pause;
+        // Reset claw operation every time
         if (openClaw | closeClaw) {
-            clawServoR.setPosition(positionR);
-            clawServoL.setPosition(positionL);
             closeClaw = false;
             openClaw = false;
         }
-        if (rotateToBack | rotateToFront) {
-            clawRotationServo.setPosition(positionOfRotation);
-            rotateToFront = false;
-            rotateToBack = false;
+        else
+        {
+            // stop the servos
+            clawServoR.setPower(0.0);
+            clawServoL.setPower(0.0);
         }
     }
 } // end of class
